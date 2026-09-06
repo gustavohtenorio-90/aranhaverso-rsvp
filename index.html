@@ -1,0 +1,2408 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missão Aranhaverso: Miguelito 4 Anos | QG Villa Trampolim</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+
+  <!-- Firebase Modular SDKs (Authentication & Firestore) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    window.FirebaseBridge = {
+      app: null,
+      db: null,
+      auth: null,
+      unsubscribeSnapshot: null,
+      isInitialized: false,
+
+      async initialize(customConfig = null) {
+        try {
+          if (this.unsubscribeSnapshot) {
+            this.unsubscribeSnapshot();
+            this.unsubscribeSnapshot = null;
+          }
+
+          let config = customConfig;
+          if (!config && typeof __firebase_config !== 'undefined') {
+            try {
+              config = JSON.parse(__firebase_config);
+            } catch (e) {
+              config = null;
+            }
+          }
+
+          if (!config) {
+            const stored = localStorage.getItem('aranhaverso_firebase_config');
+            if (stored) {
+              try {
+                config = JSON.parse(stored);
+              } catch (e) {
+                config = null;
+              }
+            }
+          }
+
+          if (!config || !config.apiKey || !config.projectId) {
+            return { success: false, message: "Nenhuma configuração do Firebase fornecida." };
+          }
+
+          this.app = initializeApp(config, "aranhaversoApp_" + Date.now());
+          this.auth = getAuth(this.app);
+          this.db = getFirestore(this.app);
+
+          // Rule 3: Auth Before Queries
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(this.auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(this.auth);
+          }
+
+          this.isInitialized = true;
+          this.listenToMissionDocument();
+          return { success: true, message: "Firebase conectado com sucesso!" };
+        } catch (err) {
+          console.warn("Firebase init error:", err);
+          this.isInitialized = false;
+          return { success: false, message: err.message || "Falha na autenticação do Firebase." };
+        }
+      },
+
+      listenToMissionDocument() {
+        if (!this.isInitialized || !this.auth.currentUser) return;
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'aranhaverso-miguelito-4anos';
+        const roomCode = (window.currentRoomCode || 'MIGUELITO-4ANOS').toUpperCase().trim();
+        
+        // Rule 1: Strict Paths -> /artifacts/{appId}/public/data/{collectionName}/{documentId}
+        const docRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'mission_data', roomCode);
+
+        // Required error callback
+        this.unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data && Array.isArray(data.guests) && data.updatedAt > (window.lastKnownCloudTimestamp || 0)) {
+              window.lastKnownCloudTimestamp = data.updatedAt;
+              window.mergeGuestsWithData(data.guests);
+              window.saveToLocalStorageOnly();
+              window.renderAll();
+              window.updateCloudBadge('connected', 'Firebase Sincronizado');
+              window.showToast("Firebase Atualizado", "Dados recebidos em tempo real do banco na nuvem!");
+            }
+          }
+        }, (error) => {
+          console.warn("Firestore snapshot error:", error);
+          window.updateCloudBadge('local', 'Firebase: Erro de Permissão');
+        });
+      },
+
+      async saveMissionDocument(guests, roomCode) {
+        if (!this.isInitialized || !this.auth || !this.auth.currentUser) return false;
+        try {
+          const appId = typeof __app_id !== 'undefined' ? __app_id : 'aranhaverso-miguelito-4anos';
+          const cleanRoom = (roomCode || 'MIGUELITO-4ANOS').toUpperCase().trim();
+          const docRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'mission_data', cleanRoom);
+
+          const payload = {
+            room: cleanRoom,
+            updatedAt: Date.now(),
+            updatedBy: this.auth.currentUser.uid,
+            guests: guests
+          };
+
+          await setDoc(docRef, payload);
+          return true;
+        } catch (err) {
+          console.warn("Firestore setDoc error:", err);
+          return false;
+        }
+      }
+    };
+  </script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            spider: {
+              red: '#E23636',
+              darkred: '#9B1B1B',
+              blue: '#0F4C81',
+              neonblue: '#00D2FF',
+              darkblue: '#061325',
+              yellow: '#FFD200',
+              purple: '#9B51E0',
+              hud: '#0c1626',
+              border: '#1E3A5F'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            tactical: ['"Chakra Petch"', 'sans-serif']
+          },
+          boxShadow: {
+            neonRed: '0 0 20px rgba(226, 54, 54, 0.4)',
+            neonBlue: '0 0 20px rgba(0, 210, 255, 0.35)',
+            cardGlow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #050a14;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(226, 54, 54, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(0, 210, 255, 0.1) 0%, transparent 40%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    
+    .hud-panel {
+      background: rgba(12, 22, 38, 0.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(0, 210, 255, 0.22);
+    }
+
+    .hud-panel:hover {
+      border-color: rgba(0, 210, 255, 0.45);
+    }
+
+    .tactical-border {
+      position: relative;
+    }
+    .tactical-border::before {
+      content: '';
+      position: absolute;
+      top: -2px; left: -2px; width: 10px; height: 10px;
+      border-top: 2px solid #00D2FF;
+      border-left: 2px solid #00D2FF;
+    }
+    .tactical-border::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; right: -2px; width: 10px; height: 10px;
+      border-bottom: 2px solid #E23636;
+      border-right: 2px solid #E23636;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #061325;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E3A5F;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00D2FF;
+    }
+  </style>
+</head>
+
+<body class="font-sans antialiased text-slate-200 selection:bg-spider-red selection:text-white pb-16">
+
+  <header class="border-b border-spider-border/50 bg-spider-darkblue/90 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-spider-red flex items-center justify-center text-white font-bold text-xl shadow-neonRed tactical-border">
+          <i class="fa-solid fa-spider"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs uppercase tracking-widest font-tactical text-spider-neonblue font-semibold">QG Villa Trampolim • Missão Aranhaverso</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <i class="fa-solid fa-cake-candles mr-1"></i> Miguelito 4 Anos
+            </span>
+            <!-- Nuvem Status Pill -->
+            <button id="btnOpenCloudConfig" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 text-slate-300 border border-slate-700 hover:border-spider-neonblue transition cursor-pointer" title="Configurar conexão na Nuvem para sincronizar Celular e PC">
+              <span id="cloudStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span id="cloudStatusText">Nuvem da Missão: Conectando...</span>
+              <i class="fa-solid fa-arrows-rotate text-[9px] ml-0.5 text-spider-neonblue"></i>
+            </button>
+          </div>
+          <h1 class="text-lg sm:text-xl font-tactical font-bold text-white tracking-wide">
+            Infográfico Estratégico & Painel de Decisão RSVP
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="btnOpenQrModal" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md flex items-center gap-1.5 transition" title="Apontar a câmera do celular para abrir a lista sincronizada">
+          <i class="fa-solid fa-qrcode"></i> <span>Conectar Celular (QR Code)</span>
+        </button>
+        <button id="btnSyncNowForce" class="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-spider-blue/60 hover:bg-spider-blue text-cyan-200 border border-spider-neonblue/40 flex items-center gap-1.5 transition" title="Forçar sincronização com a nuvem agora">
+          <i class="fa-solid fa-cloud-arrow-up"></i> <span>Salvar na Nuvem</span>
+        </button>
+        <button id="btnQuickExport" class="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-file-csv"></i> <span>Baixar CSV</span>
+        </button>
+        <button id="btnCopyReport" class="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-copy"></i> <span>Dossiê</span>
+        </button>
+        <button id="btnResetData" class="px-2 py-1.5 rounded-md text-xs text-rose-300 hover:text-white hover:bg-rose-950/60 border border-rose-900/60 transition" title="Redefinir lista para o estado inicial padrão de 75 convidados">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
+
+    <!-- Seção 1: Regras do Espaço e Limites Contratados -->
+    <section>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        <!-- Regra 1: Salão -->
+        <div class="hud-panel rounded-xl p-4 tactical-border relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-xs font-tactical text-slate-400 uppercase tracking-wider">Regra 1 • Espaço Físico</span>
+              <h3 class="text-lg font-bold text-white flex items-center gap-2 mt-0.5">
+                <i class="fa-solid fa-users text-spider-neonblue"></i> Capacidade Salão
+              </h3>
+            </div>
+            <span class="px-2.5 py-1 rounded text-xs font-tactical font-bold bg-spider-neonblue/20 text-spider-neonblue border border-spider-neonblue/40">
+              70 VAGAS
+            </span>
+          </div>
+          <div class="mt-3 text-xs text-slate-300 space-y-1">
+            <p><i class="fa-solid fa-shield-halved text-emerald-400 mr-1.5"></i><strong>Isenção:</strong> Crianças até 2 anos <span class="text-emerald-300 font-semibold">NÃO contam</span>.</p>
+            <p><i class="fa-solid fa-triangle-exclamation text-amber-400 mr-1.5"></i><strong>Ocupação:</strong> A partir dos 3 anos e todos os adultos contam vaga integral.</p>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Lista bruta inicial:</span>
+            <span class="font-bold text-rose-400">71 presentes (+1 excedente)</span>
+          </div>
+        </div>
+
+        <!-- Regra 2: Buffet -->
+        <div class="hud-panel rounded-xl p-4 tactical-border relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-xs font-tactical text-slate-400 uppercase tracking-wider">Regra 2 • Gastronomia</span>
+              <h3 class="text-lg font-bold text-white flex items-center gap-2 mt-0.5">
+                <i class="fa-solid fa-utensils text-spider-red"></i> Buffet Fechado
+              </h3>
+            </div>
+            <span class="px-2.5 py-1 rounded text-xs font-tactical font-bold bg-spider-red/20 text-spider-red border border-spider-red/40">
+              60 PAGANTES
+            </span>
+          </div>
+          <div class="mt-3 text-xs text-slate-300 space-y-1">
+            <p><i class="fa-solid fa-gift text-emerald-400 mr-1.5"></i><strong>Isenção:</strong> Crianças até 6 anos <span class="text-emerald-300 font-semibold">NÃO pagam</span>.</p>
+            <p><i class="fa-solid fa-receipt text-amber-400 mr-1.5"></i><strong>Cobrança:</strong> Crianças 7+ anos (Veteranos) e adultos pagam normalmente.</p>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Lista bruta inicial:</span>
+            <span class="font-bold text-rose-400">64 pagantes (+4 excedentes)</span>
+          </div>
+        </div>
+
+        <!-- Regra 3: Trampolim -->
+        <div class="hud-panel rounded-xl p-4 tactical-border relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-xs font-tactical text-slate-400 uppercase tracking-wider">Regra 3 • Arena de Saltos</span>
+              <h3 class="text-lg font-bold text-white flex items-center gap-2 mt-0.5">
+                <i class="fa-solid fa-bolt text-yellow-400"></i> Portal Trampolim
+              </h3>
+            </div>
+            <span class="px-2.5 py-1 rounded text-xs font-tactical font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+              40 ACESSOS
+            </span>
+          </div>
+          <div class="mt-3 text-xs text-slate-300 space-y-1">
+            <p><i class="fa-solid fa-child-reaching text-emerald-400 mr-1.5"></i><strong>Crianças cadastradas:</strong> <span id="trampolimRuleCount" class="font-bold text-white">16</span> na missão.</p>
+            <p><i class="fa-solid fa-arrows-spin text-spider-neonblue mr-1.5"></i><strong>Folga Tática:</strong> <span id="trampolimVacancyCount" class="text-emerald-300 font-bold">24 vagas livres</span> para rodízio!</p>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Ocupação infantil:</span>
+            <span class="font-bold text-emerald-400">Capacidade ampla e liberada</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Seção 2: Central Tática de Decisão em Tempo Real -->
+    <section class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-spider-neonblue animate-ping"></span>
+          <h2 class="text-xl font-tactical font-bold text-white tracking-wide">
+            CENTRAL TÁTICA DE DECISÃO EM TEMPO REAL
+          </h2>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-400">Modo de Avaliação:</span>
+          <button id="viewModeWorstCase" class="px-2.5 py-1 rounded font-medium bg-spider-blue text-white border border-spider-neonblue/50 text-xs transition">
+            Cenário Potencial (Conf + Pend)
+          </button>
+          <button id="viewModeConfirmedOnly" class="px-2.5 py-1 rounded font-medium bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs transition">
+            Apenas Confirmados
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Coluna 1 & 2: Gauges de Salão e Buffet -->
+        <div class="lg:col-span-8 hud-panel rounded-xl p-5 space-y-6">
+          
+          <!-- Gauge 1: Salão -->
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-spider-neonblue text-base"><i class="fa-solid fa-person-shelter"></i></span>
+                <span class="font-tactical font-bold text-white text-sm uppercase">Ocupação do Salão Físico</span>
+                <span class="text-xs text-slate-400">(Limite: 70 vagas)</span>
+              </div>
+              <div class="font-tactical font-bold text-base" id="kpiSalaoText">
+                <span id="kpiSalaoValue" class="text-cyan-300 text-xl font-black">--</span>
+                <span class="text-slate-400">/ 70</span>
+                <span id="kpiSalaoBadge" class="ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold"></span>
+              </div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-700 p-0.5 relative">
+              <div id="kpiSalaoBar" class="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 to-spider-neonblue" style="width: 0%"></div>
+              <div class="absolute top-0 bottom-0 left-[93.33%] w-[2px] bg-rose-500/80 pointer-events-none" title="Limite Contratado (70)"></div>
+            </div>
+            <div class="flex justify-between items-center text-[11px] text-slate-400 mt-1.5">
+              <span>0 vagas</span>
+              <span id="kpiSalaoDetails">Confirmados: 0 | Pendentes: 0</span>
+              <span class="text-rose-400 font-bold">70 Limite</span>
+            </div>
+          </div>
+
+          <!-- Gauge 2: Buffet -->
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-spider-red text-base"><i class="fa-solid fa-utensils"></i></span>
+                <span class="font-tactical font-bold text-white text-sm uppercase">Pagantes do Buffet Gastronômico</span>
+                <span class="text-xs text-slate-400">(Contratado: 60)</span>
+              </div>
+              <div class="font-tactical font-bold text-base" id="kpiBuffetText">
+                <span id="kpiBuffetValue" class="text-rose-400 text-xl font-black">--</span>
+                <span class="text-slate-400">/ 60</span>
+                <span id="kpiBuffetBadge" class="ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold"></span>
+              </div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-700 p-0.5 relative">
+              <div id="kpiBuffetBar" class="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500" style="width: 0%"></div>
+              <div class="absolute top-0 bottom-0 left-[93.75%] w-[2px] bg-rose-500/80 pointer-events-none" title="Limite Contratado (60)"></div>
+            </div>
+            <div class="flex justify-between items-center text-[11px] text-slate-400 mt-1.5">
+              <span>0 pagantes</span>
+              <span id="kpiBuffetDetails">Adultos: 0 | Crianças >6a: 0</span>
+              <span class="text-rose-400 font-bold">60 Contratados</span>
+            </div>
+          </div>
+
+          <!-- Mini Stats Row -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800 text-center">
+            <div class="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Confirmados</div>
+              <div id="statConfirmedCount" class="text-lg font-tactical font-bold text-emerald-400">0</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Pendentes (Aguardando)</div>
+              <div id="statPendingCount" class="text-lg font-tactical font-bold text-amber-300">0</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Recusas / Não Vão</div>
+              <div id="statDeclinedCount" class="text-lg font-tactical font-bold text-rose-400">0</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Total Convidados</div>
+              <div id="statTotalCount" class="text-lg font-tactical font-bold text-white">75</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Coluna 3: Caixa de Diagnóstico Estratégico -->
+        <div class="lg:col-span-4 hud-panel rounded-xl p-5 flex flex-col justify-between tactical-border border-spider-neonblue/30">
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-brain text-spider-yellow"></i>
+                <h3 class="font-tactical font-bold text-white text-sm uppercase tracking-wider">Parecer Tático do Cerimonial</h3>
+              </div>
+              <span id="diagnosticIcon" class="text-lg"></span>
+            </div>
+
+            <!-- Parecer Dinâmico -->
+            <div id="diagnosticCard" class="mt-4 p-3.5 rounded-lg bg-slate-900/80 border border-slate-700 space-y-2">
+              <div class="flex items-center gap-2">
+                <span id="diagnosticPill" class="px-2 py-0.5 rounded text-[11px] font-tactical font-bold uppercase tracking-wide">
+                  Analisando...
+                </span>
+              </div>
+              <p id="diagnosticTitle" class="text-sm font-bold text-white">
+                Calculando status de quórum...
+              </p>
+              <p id="diagnosticDesc" class="text-xs text-slate-300 leading-relaxed">
+                Aguardando carregamento de agentes.
+              </p>
+            </div>
+
+            <!-- Dica de Ação Estratégica -->
+            <div class="mt-4 bg-spider-blue/20 rounded-lg p-3 border border-spider-blue/40 text-xs text-slate-300 space-y-1.5">
+              <div class="font-semibold text-spider-neonblue flex items-center gap-1.5">
+                <i class="fa-solid fa-compass"></i> Regra de Ouro dos 4 "Não":
+              </div>
+              <p class="text-[11px] leading-relaxed text-slate-300">
+                Se acumularmos <strong class="text-amber-300">4 recusas de pagantes</strong> (adultos ou veteranos >6 anos), o buffet atinge 60 e o espaço atinge ≤70. Não será necessário nenhum corte nem aditivo!
+              </p>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+            <button id="btnSimulateFull" class="flex-1 py-1.5 px-2 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition text-center" title="Simular 100% de confirmação de todos os pendentes">
+              <i class="fa-solid fa-users mr-1"></i> Simular 100%
+            </button>
+            <button id="btnSimulateNaturalNorm" class="flex-1 py-1.5 px-2 text-xs rounded bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800 transition text-center" title="Simular 4 recusas naturais de pagantes">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Simular -4 Recusas
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Seção 3: Balanço do Multiverso & Triagem Kids -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Equilíbrio Familiar dos Adultos -->
+      <div class="lg:col-span-6 hud-panel rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-scale-balanced text-spider-neonblue"></i>
+            <h3 class="font-tactical font-bold text-white text-base tracking-wide">
+              BALANÇO DO MULTIVERSO (<span id="adultsTotalHeader">59</span> ADULTOS)
+            </h3>
+          </div>
+          <span class="text-xs text-slate-400 font-tactical">Paridade Multiversal</span>
+        </div>
+
+        <p class="text-xs text-slate-300">
+          Distribuição calculada em tempo real entre as dimensões e guardiões:
+        </p>
+
+        <div class="space-y-3">
+          <!-- Família Cátia -->
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-rose-300 font-semibold flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span> Dimensão Cátia
+              </span>
+              <span id="barCatiaText" class="font-tactical font-bold text-slate-200">23 adultos (39.0%)</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div id="barCatiaFill" class="h-full bg-gradient-to-r from-rose-600 to-rose-400 transition-all duration-500" style="width: 39%"></div>
+            </div>
+          </div>
+
+          <!-- Família Gustavo -->
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-cyan-300 font-semibold flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-spider-neonblue"></span> Dimensão Gustavo
+              </span>
+              <span id="barGustavoText" class="font-tactical font-bold text-slate-200">22 adultos (37.3%)</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div id="barGustavoFill" class="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-500" style="width: 37.3%"></div>
+            </div>
+          </div>
+
+          <!-- Guardiões dos Amiguinhos -->
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-amber-300 font-semibold flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span> Guardiões dos Aliados (Pais das Crianças)
+              </span>
+              <span id="barGuardiansText" class="font-tactical font-bold text-slate-200">12 adultos (20.3%)</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div id="barGuardiansFill" class="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500" style="width: 20.3%"></div>
+            </div>
+          </div>
+
+          <!-- Anfitriões -->
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-purple-300 font-semibold flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Comandantes Anfitriões (Cátia & Gustavo)
+              </span>
+              <span id="barHostsText" class="font-tactical font-bold text-slate-200">2 adultos (3.4%)</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div id="barHostsFill" class="h-full bg-gradient-to-r from-purple-600 to-purple-400 transition-all duration-500" style="width: 3.4%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-slate-900/60 rounded-lg border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+          <span><i class="fa-solid fa-users-viewfinder text-spider-neonblue mr-1"></i> Adultos: <strong id="statAdultsCountText" class="text-white">59</strong></span>
+          <span><i class="fa-solid fa-children text-amber-400 mr-1"></i> Crianças: <strong id="statKidsCountText" class="text-white">16</strong></span>
+          <span class="font-bold text-white"><i class="fa-solid fa-crosshairs text-spider-red mr-1"></i> Lista: <strong id="statTotalNominalText" class="text-spider-neonblue">75</strong></span>
+        </div>
+      </div>
+
+      <!-- Tropa Kids: Triagem por Faixa Etária -->
+      <div class="lg:col-span-6 hud-panel rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-masks-theater text-spider-red"></i>
+            <h3 class="font-tactical font-bold text-white text-base tracking-wide">
+              TROPA KIDS: TRIAGEM POR FAIXA ETÁRIA (<span id="kidsTotalHeader">16</span>)
+            </h3>
+          </div>
+          <span class="text-xs text-amber-300 font-tactical font-bold"><span id="trampolimKidsCount">16</span> no Trampolim</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          
+          <!-- Bebês <= 2 anos -->
+          <div class="p-3 rounded-lg bg-emerald-950/30 border border-emerald-600/40 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emerald-300">Baby Spiders</span>
+              <span id="badgeBabyCount" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">4 Cadetes</span>
+            </div>
+            <div class="text-[11px] text-slate-300">≤ 2 Anos</div>
+            <p class="text-[10px] text-emerald-400 font-medium leading-tight">
+              Isenção Total: Não contam no salão e Não pagam buffet.
+            </p>
+            <div id="textBabyNames" class="text-[10px] text-slate-400 pt-1 border-t border-emerald-900/50 truncate" title="Helena, Clara, Matheus, José">
+              Helena (1), Clara (2), Matheus (2), José (2).
+            </div>
+          </div>
+
+          <!-- Cadetes 3 a 6 anos -->
+          <div class="p-3 rounded-lg bg-cyan-950/30 border border-cyan-600/40 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-cyan-300">Aranhas Cadetes</span>
+              <span id="badgeCadetesCount" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300">7 Heróis</span>
+            </div>
+            <div class="text-[11px] text-slate-300">3 a 6 Anos</div>
+            <p class="text-[10px] text-cyan-400 font-medium leading-tight">
+              Contam Vaga no Salão, mas <strong class="text-white">Buffet Free</strong>.
+            </p>
+            <div id="textCadetesNames" class="text-[10px] text-slate-400 pt-1 border-t border-cyan-900/50 truncate" title="Miguelito, Laio, João, José, Leo, Matheus, Miguelzinho">
+              Miguelito (4), Laio (3), João (5)...
+            </div>
+          </div>
+
+          <!-- Veteranos > 6 anos -->
+          <div class="p-3 rounded-lg bg-rose-950/30 border border-rose-600/40 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-rose-300">Aranhas Veteranos</span>
+              <span id="badgeVeteranosCount" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300">5 Heróis</span>
+            </div>
+            <div class="text-[11px] text-slate-300">> 6 Anos</div>
+            <p class="text-[10px] text-rose-400 font-medium leading-tight">
+              Contam no Salão e <strong class="text-white">Pagam Buffet</strong>.
+            </p>
+            <div id="textVeteranosNames" class="text-[10px] text-slate-400 pt-1 border-t border-rose-900/50 truncate" title="Alvinho, Lavínia, Bê, Heitor, Lalá">
+              Alvinho (7), Lavínia (9), Bê (9)...
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Matriz de Decisão Flowchart Simplificada -->
+        <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-700 text-xs space-y-2">
+          <div class="font-tactical font-bold text-spider-yellow uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-route"></i> Protocolo Tático Pré-Festa (Como Proceder)
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-300">
+            <div class="p-2 rounded bg-slate-800/80 border-l-2 border-emerald-500">
+              <strong class="text-emerald-300 block">≥ 4 Recusas:</strong>
+              Espaço e Buffet normalizam naturalmente. Nenhum corte necessário!
+            </div>
+            <div class="p-2 rounded bg-slate-800/80 border-l-2 border-amber-500">
+              <strong class="text-amber-300 block">1 a 3 Recusas:</strong>
+              Salão normalizado (&le;70). Aditivo de 1 a 3 no buffet sem excluir familiares.
+            </div>
+            <div class="p-2 rounded bg-slate-800/80 border-l-2 border-rose-500">
+              <strong class="text-rose-300 block">100% Confirmados:</strong>
+              Salão +1 e Buffet +4. Contratar aditivo no Villa ou pequeno ajuste de acompanhantes.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Seção 4: Anexo Tático - Conferência Prévia de RSVP -->
+    <section class="space-y-4" id="secao-rsvp">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-clipboard-check text-spider-neonblue text-lg"></i>
+            <h2 class="text-xl font-tactical font-bold text-white tracking-wide">
+              ANEXO TÁTICO: CONFERÊNCIA PRÉVIA (RSVP DA TROPA)
+            </h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Adicione, dispense ou atualize agentes com cálculo automático de impacto orçamentário.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Botão Adicionar Agente -->
+          <button id="btnOpenAddGuestModal" class="px-3 py-1.5 rounded text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white transition flex items-center gap-1.5 shadow-md">
+            <i class="fa-solid fa-user-plus"></i> <span>Alistar Convidado</span>
+          </button>
+          <button id="btnBatchConfirmVisible" class="px-2.5 py-1.5 rounded text-xs font-semibold bg-emerald-950/70 hover:bg-emerald-800 text-emerald-300 border border-emerald-700 transition">
+            <i class="fa-solid fa-check-double mr-1"></i> Confirmar Visíveis
+          </button>
+          <button id="btnOpenWhatsAppSummon" class="px-2.5 py-1.5 rounded text-xs font-semibold bg-spider-red/80 hover:bg-spider-red text-white transition flex items-center gap-1.5 shadow-neonRed">
+            <i class="fa-brands fa-whatsapp"></i> <span>Gerador de Convocação</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros e Barra de Busca -->
+      <div class="hud-panel rounded-xl p-4 space-y-3">
+        <div class="flex flex-col lg:flex-row gap-3 items-center justify-between">
+          
+          <!-- Tabs de Dimensão -->
+          <div class="flex flex-wrap gap-1.5 w-full lg:w-auto" id="dimensionTabs">
+            <button data-dim="all" class="dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical font-bold bg-spider-blue text-white border border-spider-neonblue transition">
+              Todos (<span id="filterCountAll">75</span>)
+            </button>
+            <button data-dim="Anfitriões" class="dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical text-slate-300 hover:text-white bg-slate-900 border border-slate-700 transition">
+              Anfitriões (<span id="filterCountAnfitrioes">3</span>)
+            </button>
+            <button data-dim="Família Cátia" class="dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical text-slate-300 hover:text-white bg-slate-900 border border-slate-700 transition">
+              Família Cátia (<span id="filterCountCatia">23</span>)
+            </button>
+            <button data-dim="Família Gustavo" class="dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical text-slate-300 hover:text-white bg-slate-900 border border-slate-700 transition">
+              Família Gustavo (<span id="filterCountGustavo">22</span>)
+            </button>
+            <button data-dim="Guardiões Amigos" class="dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical text-slate-300 hover:text-white bg-slate-900 border border-slate-700 transition">
+              Guardiões (<span id="filterCountGuardioes">12</span>)
+            </button>
+            <button data-dim="Tropa Kids" class="dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical text-slate-300 hover:text-white bg-slate-900 border border-slate-700 transition">
+              Tropa Kids (<span id="filterCountKids">16</span>)
+            </button>
+          </div>
+
+          <!-- Busca e Status -->
+          <div class="flex flex-wrap sm:flex-nowrap gap-2 w-full lg:w-auto">
+            <div class="relative w-full sm:w-64">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+              <input type="text" id="guestSearchInput" placeholder="Pesquisar agente/convidado..." 
+                class="w-full pl-8 pr-3 py-1.5 text-xs rounded bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-spider-neonblue">
+            </div>
+
+            <select id="statusFilterSelect" class="py-1.5 px-3 text-xs rounded bg-slate-900 border border-slate-700 text-slate-200 focus:outline-none focus:border-spider-neonblue">
+              <option value="all">Status: Todos</option>
+              <option value="confirmed">Apenas Confirmados (✅)</option>
+              <option value="pending">Apenas Pendentes (⏳)</option>
+              <option value="declined">Apenas Não Vão (❌)</option>
+            </select>
+          </div>
+
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800 flex-wrap gap-2">
+          <div>
+            Exibindo <span id="visibleGuestsCount" class="font-bold text-white">75</span> de <span id="totalCatalogCount" class="font-bold text-white">75</span> agentes convocados
+          </div>
+          <div class="flex items-center gap-2 text-[11px]">
+            <span id="storageModeLabel" class="text-emerald-300 flex items-center gap-1">
+              <i class="fa-solid fa-circle-check text-emerald-400"></i> Nuvem da Missão Ativa
+            </span>
+            <span class="text-slate-600">•</span>
+            <span id="lastSyncTime" class="text-slate-400">Gravando...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela Nominal Integrada -->
+      <div class="hud-panel rounded-xl overflow-hidden border border-slate-800 shadow-cardGlow">
+        <div class="overflow-x-auto max-h-[620px] relative">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="sticky top-0 z-20 bg-slate-950/95 text-slate-400 font-tactical uppercase tracking-wider text-[11px] border-b border-slate-800 backdrop-blur-md">
+              <tr>
+                <th class="py-3 px-3 w-12 text-center">Nº</th>
+                <th class="py-3 px-4">Convidado / Agente</th>
+                <th class="py-3 px-3">Dimensão / Núcleo</th>
+                <th class="py-3 px-3">Perfil / Idade</th>
+                <th class="py-3 px-3 text-center">Salão</th>
+                <th class="py-3 px-3 text-center">Buffet</th>
+                <th class="py-3 px-4 text-center">Status RSVP</th>
+                <th class="py-3 px-4">Anotação / Decisão</th>
+                <th class="py-3 px-3 text-center w-14">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="guestsTableBody" class="divide-y divide-slate-800/60 font-sans">
+              <!-- Rendered via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal 1: Conectar Celular via QR Code ou Código de Sala -->
+  <div id="modalQrSync" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-emerald-500 rounded-xl max-w-md w-full p-5 space-y-4 tactical-border shadow-neonBlue">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2 text-emerald-400">
+          <i class="fa-solid fa-qrcode text-xl"></i>
+          <h3 class="font-tactical font-bold text-white text-base">Parear com Celular via QR Code</h3>
+        </div>
+        <button id="btnCloseModalQrSync" class="text-slate-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 space-y-3 text-center">
+        <p class="text-slate-300">
+          Abra a câmera do celular e aponte para o QR Code abaixo para abrir o painel sincronizado na mesma sala:
+        </p>
+
+        <!-- QR Code Container -->
+        <div class="flex justify-center p-3 bg-white rounded-xl mx-auto w-fit shadow-lg">
+          <img id="qrCodeImage" src="" alt="QR Code da Missão" class="w-48 h-48 block" />
+        </div>
+
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-left space-y-2">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-400">Código da Sala da Missão:</span>
+            <strong id="displayRoomCode" class="text-spider-neonblue font-mono font-bold text-xs tracking-wider">MIGUELITO-4ANOS</strong>
+          </div>
+          <button id="btnCopyRoomLink" class="w-full py-2 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 font-semibold text-xs flex items-center justify-center gap-2 transition">
+            <i class="fa-solid fa-link"></i> Copiar Link Direto para WhatsApp
+          </button>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-1">
+        <button id="btnDoneQrSync" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+          Pronto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Configuração e Diagnóstico da Nuvem -->
+  <div id="modalCloudConfig" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-spider-neonblue rounded-xl max-w-lg w-full p-5 space-y-4 tactical-border shadow-neonBlue">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2 text-spider-neonblue">
+          <i class="fa-solid fa-satellite-dish text-xl"></i>
+          <h3 class="font-tactical font-bold text-white text-base">Central de Conexão à Nuvem</h3>
+        </div>
+        <button id="btnCloseModalCloudConfig" class="text-slate-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 space-y-4">
+        <!-- Nuvem Direta Automática -->
+        <div class="p-3 bg-slate-950 rounded-lg border border-emerald-500/50 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-emerald-300 flex items-center gap-1.5 text-xs">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i> Nuvem Direta da Missão (Ativa e Sem Cadastro)
+            </span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              Recomendado
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Esta sala sincroniza automaticamente o computador da Cátia e o celular do Gustavo sem precisar criar conta nem configurar chaves do Google Firebase.
+          </p>
+          <div class="flex items-center gap-2">
+            <input type="text" id="inputRoomCode" value="MIGUELITO-4ANOS" placeholder="Nome da sala..." 
+              class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-spider-neonblue uppercase">
+            <button id="btnSaveRoomCode" class="px-3 py-1.5 rounded bg-spider-neonblue hover:bg-cyan-400 text-slate-950 font-bold text-xs transition">
+              Conectar Sala
+            </button>
+          </div>
+        </div>
+
+        <!-- Integração Completa com Google Firebase (GitHub Pages / Web App) -->
+        <div class="p-3 bg-slate-950 rounded-lg border border-amber-500/50 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
+              <i class="fa-brands fa-google text-amber-400"></i> Google Firebase (Para GitHub Pages e Web Apps)
+            </span>
+            <span id="firebaseBadgeStatus" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+              Desconectado
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Cole abaixo as chaves do seu projeto Firebase. Ao ativar, todas as confirmações sincronizam via <strong>Firestore em tempo real (onSnapshot)</strong>.
+          </p>
+          <textarea id="inputFirebaseConfig" rows="4" placeholder='Cole seu objeto do Firebase aqui:
+{
+  "apiKey": "AIzaSy...",
+  "authDomain": "seu-app.firebaseapp.com",
+  "projectId": "seu-app-id",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}' class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-[11px] font-mono text-slate-200 focus:outline-none focus:border-amber-400"></textarea>
+          <div class="flex items-center justify-between gap-2">
+            <button id="btnClearFirebaseConfig" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 text-[11px]">
+              Remover Chaves
+            </button>
+            <button id="btnConnectFirebase" class="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-plug"></i> Ativar Sincronização Firebase
+            </button>
+          </div>
+          <div id="firebaseFeedbackText" class="text-[11px] text-slate-400 hidden pt-1"></div>
+        </div>
+
+        <!-- Opção de Backup Manual -->
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+          <span class="font-bold text-slate-300 block text-xs">Transferência Manual Rápida (Se estiver sem internet)</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="btnQuickCopyState" class="py-1.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-copy"></i> Copiar Dados
+            </button>
+            <button id="btnQuickPasteState" class="py-1.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-paste"></i> Colar Dados
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <button id="btnForcePullCloud" class="px-3 py-1.5 rounded text-xs text-cyan-300 hover:bg-slate-800 border border-cyan-800 transition">
+            <i class="fa-solid fa-rotate mr-1"></i> Puxar da Nuvem Agora
+          </button>
+          <button id="btnForcePushCloud" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
+            <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Enviar Tudo pra Nuvem
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Adicionar Convidado -->
+  <div id="modalAddGuest" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-spider-neonblue rounded-xl max-w-md w-full p-5 space-y-4 tactical-border shadow-neonBlue">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-emerald-400 text-lg"></i>
+          <h3 class="font-tactical font-bold text-white text-base">Alistar Novo Agente / Convidado</h3>
+        </div>
+        <button id="btnCloseModalAddGuest" class="text-slate-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formAddGuest" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Nome do Agente / Convidado *</label>
+          <input type="text" id="addGuestName" required placeholder="Ex: Primo Lucas ou Valentina" 
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-spider-neonblue">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Dimensão / Núcleo *</label>
+            <select id="addGuestDimension" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-white focus:outline-none focus:border-spider-neonblue">
+              <option value="Família Cátia">Família Cátia</option>
+              <option value="Família Gustavo">Família Gustavo</option>
+              <option value="Guardiões Amigos">Guardiões Amigos</option>
+              <option value="Tropa Kids">Tropa Kids</option>
+              <option value="Anfitriões">Anfitriões</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Categoria / Faixa Etária *</label>
+            <select id="addGuestCategory" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-white focus:outline-none focus:border-spider-neonblue">
+              <option value="adult">Adulto (Salão: Sim | Buffet: Paga)</option>
+              <option value="baby">Bebê ≤ 2 anos (Isenção Total)</option>
+              <option value="cadet">Cadete 3-6 anos (Salão: Sim | Buffet: Free)</option>
+              <option value="veteran">Veterano > 6 anos (Salão: Sim | Buffet: Paga)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Idade aproximada (se criança)</label>
+            <input type="text" id="addGuestAgeText" placeholder="Ex: 4 anos" 
+              class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-spider-neonblue">
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Status RSVP Inicial</label>
+            <select id="addGuestStatus" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-white focus:outline-none focus:border-spider-neonblue">
+              <option value="pending">⏳ Pendente (Aguardando)</option>
+              <option value="confirmed">✅ Confirmado (Vai)</option>
+              <option value="declined">❌ Não vai (Recusou)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Anotação / Observação</label>
+          <input type="text" id="addGuestNote" placeholder="Ex: Acompanhante da prima ou amiguinho" 
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-spider-neonblue">
+        </div>
+
+        <div class="p-2.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+          <div class="font-semibold text-spider-neonblue flex items-center gap-1">
+            <i class="fa-solid fa-calculator"></i> Impacto Calculado:
+          </div>
+          <div id="addGuestImpactSummary" class="text-slate-300">
+            Salão: <strong class="text-cyan-300">SIM (+1 vaga)</strong> • Buffet: <strong class="text-rose-300">PAGA (+1 pagante)</strong>
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" id="btnCancelAddGuest" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-spider-neonblue hover:bg-cyan-400 text-slate-950 font-bold transition shadow-lg">
+            <i class="fa-solid fa-check mr-1"></i> Confirmar Alistamento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 4: Excluir Convidado -->
+  <div id="modalDeleteGuest" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-rose-500 rounded-xl max-w-sm w-full p-5 space-y-4 tactical-border shadow-neonRed">
+      <div class="flex items-center gap-2 text-rose-400 border-b border-slate-800 pb-3">
+        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+        <h3 class="font-tactical font-bold text-white text-base">Dispensar Agente da Missão?</h3>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Você tem certeza que deseja remover <strong id="deleteGuestTargetName" class="text-white"></strong> da lista de convocados? Os cálculos de salão e buffet serão recalculados na hora.
+      </p>
+      <div class="pt-2 flex justify-end gap-2 text-xs">
+        <button id="btnCancelDeleteGuest" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+          Cancelar
+        </button>
+        <button id="btnConfirmDeleteGuest" class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition">
+          <i class="fa-solid fa-trash-can mr-1"></i> Sim, Remover
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: WhatsApp Convocação -->
+  <div id="modalWhatsApp" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-spider-neonblue rounded-xl max-w-lg w-full p-5 space-y-4 tactical-border shadow-neonBlue">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-brands fa-whatsapp text-emerald-400 text-xl"></i>
+          <h3 class="font-tactical font-bold text-white text-base">Convocação Multiversal (WhatsApp)</h3>
+        </div>
+        <button id="btnCloseModalWhatsApp" class="text-slate-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Copie esta mensagem personalizada para enviar aos convidados pendentes e antecipar o quórum tático da festa:
+      </p>
+
+      <div class="relative">
+        <textarea id="whatsappTextContent" rows="7" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-spider-neonblue" readonly>🕷️ CONVOCAÇÃO URGENTE DO ARANHAVERSO! 🕷️
+
+Olá, Agente!
+O quartel-general do Villa Trampolim está sendo preparado para a comemoração dos 4 ANOS DO MIGUELITO!
+
+Para alinharmos o fornecimento de teias, banquetes e o acesso exclusivo ao Portal de Saltos dos Trampolins, precisamos da sua confirmação de presença até [DATA LIMITE].
+
+Você e sua família vão conseguir se juntar à nossa missão multiversal?
+✅ Sim, estaremos lá!
+❌ Desta vez não poderemos comparecer.
+
+Aguardamos seu sinal de rádio!
+Comandantes Cátia, Gustavo e Miguelito.</textarea>
+      </div>
+
+      <div class="flex items-center justify-between pt-2">
+        <button id="btnCopyWhatsAppText" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 transition shadow-lg">
+          <i class="fa-solid fa-copy"></i> Copiar Mensagem
+        </button>
+        <span id="copyFeedback" class="text-xs text-emerald-400 hidden">
+          <i class="fa-solid fa-check mr-1"></i> Copiado com sucesso!
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tactical Toast Notification -->
+  <div id="toastNotification" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="hud-panel rounded-lg px-4 py-3 border border-spider-neonblue/60 shadow-neonBlue flex items-center gap-3 bg-slate-950/90">
+      <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+      <div>
+        <div id="toastTitle" class="text-xs font-tactical font-bold text-white uppercase">Notificação</div>
+        <div id="toastMessage" class="text-[11px] text-slate-300">Ação executada com sucesso.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Baseline catalog of 75 attendees
+    const INITIAL_GUESTS_DATA = [
+      { id: 1, name: "Catia", dimension: "Anfitriões", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "confirmed", note: "Mãe do aniversariante" },
+      { id: 2, name: "Gustavo", dimension: "Anfitriões", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "confirmed", note: "Pai do aniversariante" },
+      { id: 3, name: "Miguelito", dimension: "Anfitriões", profile: "4 anos", isChild: true, age: 4, countsHall: true, paysBuffet: false, defaultStatus: "confirmed", note: "Aniversariante (Herói do Dia)" },
+      { id: 4, name: "Joao", dimension: "Tropa Kids", profile: "5 anos", isChild: true, age: 5, countsHall: true, paysBuffet: false, defaultStatus: "pending", note: "Amigo do Miguelito" },
+      { id: 5, name: "Clara", dimension: "Tropa Kids", profile: "2 anos", isChild: true, age: 2, countsHall: false, paysBuffet: false, defaultStatus: "pending", note: "Bebê isento de regras" },
+      { id: 6, name: "Jose", dimension: "Tropa Kids", profile: "5 anos", isChild: true, age: 5, countsHall: true, paysBuffet: false, defaultStatus: "pending", note: "Amigo do Miguelito" },
+      { id: 7, name: "Miguelzinho", dimension: "Tropa Kids", profile: "5 anos", isChild: true, age: 5, countsHall: true, paysBuffet: false, defaultStatus: "pending", note: "Amigo do Miguelito" },
+      { id: 8, name: "Matheus", dimension: "Tropa Kids", profile: "2 anos", isChild: true, age: 2, countsHall: false, paysBuffet: false, defaultStatus: "pending", note: "Bebê isento de regras" },
+      { id: 9, name: "Lavinia", dimension: "Tropa Kids", profile: "8/9 anos", isChild: true, age: 9, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Paga buffet por idade" },
+      { id: 10, name: "Helena", dimension: "Tropa Kids", profile: "1 ano", isChild: true, age: 1, countsHall: false, paysBuffet: false, defaultStatus: "pending", note: "Bebê isento de regras" },
+      { id: 11, name: "Be", dimension: "Tropa Kids", profile: "9 anos", isChild: true, age: 9, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Paga buffet por idade" },
+      { id: 12, name: "Leo", dimension: "Tropa Kids", profile: "5 anos", isChild: true, age: 5, countsHall: true, paysBuffet: false, defaultStatus: "pending", note: "Amigo do Miguelito" },
+      { id: 13, name: "Laio", dimension: "Tropa Kids", profile: "3 anos", isChild: true, age: 3, countsHall: true, paysBuffet: false, defaultStatus: "pending", note: "Amigo do Miguelito" },
+      { id: 14, name: "Jose (2a)", dimension: "Tropa Kids", profile: "2 anos", isChild: true, age: 2, countsHall: false, paysBuffet: false, defaultStatus: "pending", note: "Bebê isento de regras" },
+      { id: 15, name: "Heitor", dimension: "Tropa Kids", profile: "9 anos", isChild: true, age: 9, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Paga buffet por idade" },
+      { id: 16, name: "Matheus (5a)", dimension: "Tropa Kids", profile: "5 anos", isChild: true, age: 5, countsHall: true, paysBuffet: false, defaultStatus: "pending", note: "Amigo do Miguelito" },
+      { id: 17, name: "Lala", dimension: "Tropa Kids", profile: "9 anos", isChild: true, age: 9, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Paga buffet por idade" },
+      { id: 18, name: "Alvinho", dimension: "Tropa Kids", profile: "7 anos", isChild: true, age: 7, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Paga buffet por idade" },
+      { id: 19, name: "Ledinha", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 20, name: "Vovô", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 21, name: "Vovó", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 22, name: "Tia Flavia", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 23, name: "Lavinia (Adulta)", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 24, name: "Breno", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 25, name: "Gigi", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 26, name: "Tia Liu", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 27, name: "Lucas", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 28, name: "Olivia", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 29, name: "Marcelo (1)", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 30, name: "Arthur", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 31, name: "Tio Gilvan", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 32, name: "Tio Jair", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 33, name: "Tio Jailson", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 34, name: "Jessica (1)", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 35, name: "Herico", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 36, name: "Mayane", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 37, name: "Marcelo (2)", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 38, name: "Jessica (2)", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 39, name: "Ivana", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 40, name: "Igor", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 41, name: "Eric", dimension: "Família Cátia", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Cátia" },
+      { id: 42, name: "Maiara", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 43, name: "Wando", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 44, name: "Rosinha", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 45, name: "Eduardo", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 46, name: "Lucia", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 47, name: "Tia Quel", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 48, name: "Maira", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 49, name: "Vanessa", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 50, name: "Zanze", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 51, name: "Dudu", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 52, name: "Nara", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 53, name: "Daniel", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 54, name: "Nay", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 55, name: "Elton", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 56, name: "Tia Verinha", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 57, name: "Mariana", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 58, name: "Esposo da Mariana", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 59, name: "Tiberio", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 60, name: "Tati", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 61, name: "Henrique", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 62, name: "Amanda", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 63, name: "Fernanda", dimension: "Família Gustavo", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Núcleo Gustavo" },
+      { id: 64, name: "Alice", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 65, name: "Nilton", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 66, name: "Thaisa", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 67, name: "Luciano", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 68, name: "Larissa", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 69, name: "Andre", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 70, name: "Carol", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 71, name: "Marido Carol", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 72, name: "Bel", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 73, name: "Marido da Bel", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 74, name: "Luciana", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" },
+      { id: 75, name: "Cia Luciana", dimension: "Guardiões Amigos", profile: "Adulto", isChild: false, age: null, countsHall: true, paysBuffet: true, defaultStatus: "pending", note: "Acomp. Amiguinho" }
+    ];
+
+    const LOCAL_KEY = "aranhaverso_rsvp_miguelito_4anos_v4";
+    const ROOM_CODE_KEY = "aranhaverso_room_code";
+
+    let guestList = [];
+    let currentDimensionFilter = "all";
+    let currentStatusFilter = "all";
+    let currentSearchTerm = "";
+    let viewMode = "worstCase";
+    let pendingDeleteGuestId = null;
+
+    let currentRoomCode = "MIGUELITO-4ANOS";
+    let isCloudSyncing = false;
+    let pollInterval = null;
+    let lastKnownCloudTimestamp = 0;
+
+    // Direct Cloud Relay: Free, CORS-friendly, zero-auth public KV sync
+    const CLOUD_SYNC_ENDPOINT = "https://api.restful-api.dev/objects";
+    let cloudObjectId = null;
+
+    // Expose globals for FirebaseBridge module interaction
+    window.currentRoomCode = currentRoomCode;
+    window.lastKnownCloudTimestamp = lastKnownCloudTimestamp;
+    window.mergeGuestsWithData = mergeGuestsWithData;
+    window.saveToLocalStorageOnly = saveToLocalStorageOnly;
+    window.renderAll = renderAll;
+    window.updateCloudBadge = updateCloudBadge;
+    window.showToast = showToast;
+
+    async function initApp() {
+      // 1. Recover saved Room Code or URL Room param
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      if (roomParam) {
+        currentRoomCode = roomParam.toUpperCase().trim();
+        localStorage.setItem(ROOM_CODE_KEY, currentRoomCode);
+      } else {
+        const savedRoom = localStorage.getItem(ROOM_CODE_KEY);
+        if (savedRoom) currentRoomCode = savedRoom;
+      }
+
+      window.currentRoomCode = currentRoomCode;
+      document.getElementById('inputRoomCode').value = currentRoomCode;
+      document.getElementById('displayRoomCode').innerText = currentRoomCode;
+
+      // 2. Check URL Hash payload (Link Direto)
+      checkUrlHashPayload();
+
+      // 3. Load from localStorage immediately so user never sees blank screen
+      loadFromLocalStorage();
+
+      // 4. Initialize Cloud Relay Engine
+      initCloudRelay();
+
+      // 5. Initialize Firebase if config exists or is in localStorage
+      initFirebaseFromStoredConfig();
+
+      // 6. Setup listeners
+      setupEventListeners();
+
+      // 7. Generate QR code
+      updateQrCode();
+    }
+
+    async function initFirebaseFromStoredConfig() {
+      const stored = localStorage.getItem('aranhaverso_firebase_config');
+      const inputEl = document.getElementById('inputFirebaseConfig');
+      if (stored) {
+        if (inputEl) inputEl.value = stored;
+        try {
+          const parsed = JSON.parse(stored);
+          if (window.FirebaseBridge) {
+            const res = await window.FirebaseBridge.initialize(parsed);
+            updateFirebaseUI(res.success, res.message);
+          }
+        } catch (e) {
+          console.warn("Stored Firebase parse error:", e);
+        }
+      } else if (typeof __firebase_config !== 'undefined') {
+        if (window.FirebaseBridge) {
+          const res = await window.FirebaseBridge.initialize();
+          updateFirebaseUI(res.success, res.message);
+        }
+      }
+    }
+
+    function updateFirebaseUI(isConnected, message) {
+      const badge = document.getElementById('firebaseBadgeStatus');
+      const feedback = document.getElementById('firebaseFeedbackText');
+      if (!badge || !feedback) return;
+
+      if (isConnected) {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        badge.innerText = "Conectado ✅";
+        feedback.className = "text-[11px] text-emerald-400 block pt-1";
+        feedback.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> ${message || "Firebase ativo e sincronizando em tempo real."}`;
+      } else {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700";
+        badge.innerText = "Desconectado";
+        feedback.className = "text-[11px] text-slate-400 block pt-1";
+        feedback.innerText = message || "Pronto para conexão.";
+      }
+    }
+
+    function checkUrlHashPayload() {
+      try {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#data=')) {
+          const rawB64 = hash.replace('#data=', '');
+          const jsonStr = decodeURIComponent(escape(atob(rawB64)));
+          const parsed = JSON.parse(jsonStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            mergeGuestsWithData(parsed);
+            saveToLocalStorageOnly();
+            window.history.replaceState(null, '', window.location.pathname + (window.location.search || ''));
+            showToast("Sincronizado!", "Dados da lista carregados via link direto.");
+          }
+        }
+      } catch (e) {
+        console.warn("Could not parse hash payload:", e);
+      }
+    }
+
+    function updateQrCode() {
+      const baseUrl = window.location.href.split('#')[0].split('?')[0];
+      const pairedUrl = `${baseUrl}?room=${encodeURIComponent(currentRoomCode)}`;
+      const qrImg = document.getElementById('qrCodeImage');
+      if (qrImg) {
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pairedUrl)}`;
+      }
+    }
+
+    /* === GUARANTEED LOCAL PERSISTENCE === */
+    function saveToLocalStorageOnly() {
+      try {
+        const payload = guestList.map(g => ({
+          id: g.id,
+          name: g.name,
+          dimension: g.dimension,
+          profile: g.profile,
+          isChild: g.isChild,
+          age: g.age,
+          countsHall: g.countsHall,
+          paysBuffet: g.paysBuffet,
+          status: g.status,
+          note: g.note || ""
+        }));
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
+        updateLastSaveLabel("Salvo no aparelho");
+      } catch (e) {
+        console.error("Local storage error:", e);
+      }
+    }
+
+    function loadFromLocalStorage() {
+      try {
+        const saved = localStorage.getItem(LOCAL_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          mergeGuestsWithData(parsed);
+        } else {
+          resetToInitial(false);
+        }
+      } catch (e) {
+        console.error("Local load error:", e);
+        resetToInitial(false);
+      }
+      renderAll();
+    }
+
+    function updateLastSaveLabel(statusTxt) {
+      const el = document.getElementById('lastSyncTime');
+      if (el) {
+        const now = new Date();
+        const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        el.innerText = `${statusTxt} (${time})`;
+      }
+    }
+
+    /* === ZERO-CONFIG CLOUD RELAY === */
+    async function initCloudRelay() {
+      updateCloudBadge("connecting", "Conectando...");
+      cloudObjectId = localStorage.getItem(`cloud_obj_id_${currentRoomCode}`);
+
+      // Try reading from cloud room
+      await pullFromCloud(true);
+
+      // Start automatic background polling every 6 seconds so mobile & PC stay in sync
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(() => {
+        pullFromCloud(false);
+      }, 6000);
+    }
+
+    async function pushToCloud() {
+      if (isCloudSyncing) return;
+      isCloudSyncing = true;
+      updateCloudBadge("syncing", "Salvando na Nuvem...");
+
+      const payload = {
+        name: `mission_${currentRoomCode}`,
+        data: {
+          room: currentRoomCode,
+          updatedAt: Date.now(),
+          guests: guestList
+        }
+      };
+
+      try {
+        let response;
+        if (cloudObjectId) {
+          // Update existing room object
+          response = await fetch(`${CLOUD_SYNC_ENDPOINT}/${cloudObjectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        // If not created yet or PUT returned 404, create a new cloud object
+        if (!response || !response.ok) {
+          response = await fetch(CLOUD_SYNC_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (response.ok) {
+            const resJson = await response.json();
+            if (resJson && resJson.id) {
+              cloudObjectId = resJson.id;
+              localStorage.setItem(`cloud_obj_id_${currentRoomCode}`, cloudObjectId);
+            }
+          }
+        }
+
+        lastKnownCloudTimestamp = payload.data.updatedAt;
+        updateCloudBadge("connected", `Nuvem da Missão: Conectada (${currentRoomCode})`);
+        updateLastSaveLabel("Nuvem e Aparelho Sincronizados");
+      } catch (err) {
+        console.warn("Cloud push warning:", err);
+        updateCloudBadge("local", "Salvo no Aparelho (Modo Offline)");
+      } finally {
+        isCloudSyncing = false;
+      }
+    }
+
+    async function pullFromCloud(isInitial = false) {
+      if (isCloudSyncing) return;
+      if (!cloudObjectId) {
+        // Try locating by fetching or push our current state
+        if (isInitial) {
+          await pushToCloud();
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`${CLOUD_SYNC_ENDPOINT}/${cloudObjectId}`);
+        if (response.ok) {
+          const res = await response.json();
+          if (res && res.data && res.data.guests && Array.isArray(res.data.guests)) {
+            const cloudTime = res.data.updatedAt || 0;
+            if (cloudTime > lastKnownCloudTimestamp) {
+              lastKnownCloudTimestamp = cloudTime;
+              mergeGuestsWithData(res.data.guests);
+              saveToLocalStorageOnly();
+              renderAll();
+              updateCloudBadge("connected", `Nuvem da Missão: Sincronizada`);
+              if (!isInitial) {
+                showToast("Nuvem Atualizada", "Novas alterações recebidas de outro aparelho!");
+              }
+            } else {
+              updateCloudBadge("connected", `Nuvem da Missão: Conectada`);
+            }
+          }
+        } else if (response.status === 404) {
+          // Object was pruned or not found, re-push
+          cloudObjectId = null;
+          localStorage.removeItem(`cloud_obj_id_${currentRoomCode}`);
+          await pushToCloud();
+        }
+      } catch (err) {
+        // Offline or temporary network glitch
+        updateCloudBadge("local", "Modo Offline (Salvo Local)");
+      }
+    }
+
+    function updateCloudBadge(status, text) {
+      const dot = document.getElementById('cloudStatusDot');
+      const textEl = document.getElementById('cloudStatusText');
+      const label = document.getElementById('storageModeLabel');
+
+      if (status === 'connected') {
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse";
+        textEl.innerText = text;
+        label.innerHTML = '<i class="fa-solid fa-cloud text-emerald-400"></i> <span class="text-emerald-300">Nuvem da Missão Conectada</span>';
+      } else if (status === 'syncing') {
+        dot.className = "w-1.5 h-1.5 rounded-full bg-spider-neonblue animate-spin";
+        textEl.innerText = text;
+      } else {
+        dot.className = "w-1.5 h-1.5 rounded-full bg-slate-500";
+        textEl.innerText = text;
+        label.innerHTML = '<i class="fa-solid fa-hard-drive text-slate-400"></i> <span class="text-slate-300">Salvo no Aparelho</span>';
+      }
+    }
+
+    /* === PERSIST ALL (LOCAL + CLOUD + FIREBASE) === */
+    function persistState() {
+      // 1. Save synchronously locally FIRST (100% guarantee)
+      saveToLocalStorageOnly();
+      
+      // 2. Transmit to Cloud Relay (Zero-config relay)
+      pushToCloud();
+
+      // 3. Transmit to Firebase Firestore if connected
+      if (window.FirebaseBridge && window.FirebaseBridge.isInitialized) {
+        window.FirebaseBridge.saveMissionDocument(guestList, currentRoomCode).then(success => {
+          if (success) {
+            updateCloudBadge("connected", `Firebase & Nuvem: Sincronizados`);
+          }
+        });
+      }
+    }
+
+    function mergeGuestsWithData(savedItems) {
+      if (Array.isArray(savedItems) && savedItems.length > 0) {
+        guestList = savedItems.map((item, idx) => ({
+          id: item.id || (idx + 1),
+          name: item.name,
+          dimension: item.dimension || "Outros",
+          profile: item.profile || "Adulto",
+          isChild: Boolean(item.isChild),
+          age: item.age !== undefined ? item.age : null,
+          countsHall: item.countsHall !== undefined ? item.countsHall : true,
+          paysBuffet: item.paysBuffet !== undefined ? item.paysBuffet : true,
+          status: item.status || "pending",
+          note: item.note || ""
+        }));
+      } else {
+        resetToInitial(false);
+      }
+    }
+
+    function resetToInitial(syncCloud = true) {
+      guestList = INITIAL_GUESTS_DATA.map(g => ({
+        ...g,
+        status: g.defaultStatus
+      }));
+      saveToLocalStorageOnly();
+      if (syncCloud) pushToCloud();
+      renderAll();
+    }
+
+    function recalculateMetrics() {
+      const totalGuests = guestList.length;
+
+      let confirmedCount = 0;
+      let pendingCount = 0;
+      let declinedCount = 0;
+
+      let confirmedHall = 0;
+      let potentialHall = 0;
+
+      let confirmedBuffet = 0;
+      let potentialBuffet = 0;
+
+      guestList.forEach(g => {
+        if (g.status === 'confirmed') {
+          confirmedCount++;
+          if (g.countsHall) confirmedHall++;
+          if (g.paysBuffet) confirmedBuffet++;
+        } else if (g.status === 'pending') {
+          pendingCount++;
+          if (g.countsHall) potentialHall++;
+          if (g.paysBuffet) potentialBuffet++;
+        } else if (g.status === 'declined') {
+          declinedCount++;
+        }
+      });
+
+      potentialHall += confirmedHall;
+      potentialBuffet += confirmedBuffet;
+
+      const activeHall = (viewMode === 'worstCase') ? potentialHall : confirmedHall;
+      const activeBuffet = (viewMode === 'worstCase') ? potentialBuffet : confirmedBuffet;
+
+      const salaoContracted = 70;
+      const buffetContracted = 60;
+
+      const salaoDiff = activeHall - salaoContracted;
+      const buffetDiff = activeBuffet - buffetContracted;
+
+      // Stats cards
+      document.getElementById('statConfirmedCount').innerText = confirmedCount;
+      document.getElementById('statPendingCount').innerText = pendingCount;
+      document.getElementById('statDeclinedCount').innerText = declinedCount;
+      document.getElementById('statTotalCount').innerText = totalGuests;
+      document.getElementById('totalCatalogCount').innerText = totalGuests;
+
+      // Multiverse breakdown
+      const adultsList = guestList.filter(g => !g.isChild);
+      const kidsList = guestList.filter(g => g.isChild);
+      const totalAdults = adultsList.length;
+
+      const catiaAdults = adultsList.filter(g => g.dimension === "Família Cátia").length;
+      const gustavoAdults = adultsList.filter(g => g.dimension === "Família Gustavo").length;
+      const guardianAdults = adultsList.filter(g => g.dimension === "Guardiões Amigos").length;
+      const hostAdults = adultsList.filter(g => g.dimension === "Anfitriões").length;
+
+      const catiaPct = totalAdults > 0 ? ((catiaAdults / totalAdults) * 100).toFixed(1) : 0;
+      const gustavoPct = totalAdults > 0 ? ((gustavoAdults / totalAdults) * 100).toFixed(1) : 0;
+      const guardianPct = totalAdults > 0 ? ((guardianAdults / totalAdults) * 100).toFixed(1) : 0;
+      const hostPct = totalAdults > 0 ? ((hostAdults / totalAdults) * 100).toFixed(1) : 0;
+
+      document.getElementById('adultsTotalHeader').innerText = totalAdults;
+      document.getElementById('barCatiaText').innerText = `${catiaAdults} adultos (${catiaPct}%)`;
+      document.getElementById('barCatiaFill').style.width = `${catiaPct}%`;
+
+      document.getElementById('barGustavoText').innerText = `${gustavoAdults} adultos (${gustavoPct}%)`;
+      document.getElementById('barGustavoFill').style.width = `${gustavoPct}%`;
+
+      document.getElementById('barGuardiansText').innerText = `${guardianAdults} adultos (${guardianPct}%)`;
+      document.getElementById('barGuardiansFill').style.width = `${guardianPct}%`;
+
+      document.getElementById('barHostsText').innerText = `${hostAdults} adultos (${hostPct}%)`;
+      document.getElementById('barHostsFill').style.width = `${hostPct}%`;
+
+      document.getElementById('statAdultsCountText').innerText = totalAdults;
+      document.getElementById('statKidsCountText').innerText = kidsList.length;
+      document.getElementById('statTotalNominalText').innerText = totalGuests;
+
+      // Kids Breakdown
+      const babies = kidsList.filter(k => k.age !== null && k.age <= 2);
+      const cadetes = kidsList.filter(k => k.age !== null && k.age >= 3 && k.age <= 6);
+      const veteranos = kidsList.filter(k => (k.age !== null && k.age > 6) || k.paysBuffet);
+
+      document.getElementById('kidsTotalHeader').innerText = kidsList.length;
+      document.getElementById('trampolimKidsCount').innerText = kidsList.length;
+      document.getElementById('trampolimRuleCount').innerText = kidsList.length;
+      document.getElementById('trampolimVacancyCount').innerText = `${Math.max(0, 40 - kidsList.length)} vagas livres`;
+
+      document.getElementById('badgeBabyCount').innerText = `${babies.length} Cadetes`;
+      document.getElementById('textBabyNames').innerText = babies.map(b => `${b.name} (${b.age || '≤2'}a)`).join(', ') || 'Nenhum cadastrado';
+      
+      document.getElementById('badgeCadetesCount').innerText = `${cadetes.length} Heróis`;
+      document.getElementById('textCadetesNames').innerText = cadetes.map(c => `${c.name} (${c.age || '3-6'}a)`).join(', ') || 'Nenhum cadastrado';
+
+      document.getElementById('badgeVeteranosCount').innerText = `${veteranos.length} Heróis`;
+      document.getElementById('textVeteranosNames').innerText = veteranos.map(v => `${v.name} (${v.age || '>6'}a)`).join(', ') || 'Nenhum cadastrado';
+
+      // Dimension tab counters
+      document.getElementById('filterCountAll').innerText = totalGuests;
+      document.getElementById('filterCountAnfitrioes').innerText = guestList.filter(g => g.dimension === 'Anfitriões').length;
+      document.getElementById('filterCountCatia').innerText = guestList.filter(g => g.dimension === 'Família Cátia').length;
+      document.getElementById('filterCountGustavo').innerText = guestList.filter(g => g.dimension === 'Família Gustavo').length;
+      document.getElementById('filterCountGuardioes').innerText = guestList.filter(g => g.dimension === 'Guardiões Amigos').length;
+      document.getElementById('filterCountKids').innerText = guestList.filter(g => g.dimension === 'Tropa Kids').length;
+
+      // Salão Gauge
+      const kpiSalaoValEl = document.getElementById('kpiSalaoValue');
+      const kpiSalaoBadgeEl = document.getElementById('kpiSalaoBadge');
+      const kpiSalaoBarEl = document.getElementById('kpiSalaoBar');
+      const kpiSalaoDetailsEl = document.getElementById('kpiSalaoDetails');
+
+      kpiSalaoValEl.innerText = activeHall;
+      const salaoPct = Math.min(100, Math.round((activeHall / 75) * 100));
+      kpiSalaoBarEl.style.width = `${salaoPct}%`;
+
+      if (salaoDiff > 0) {
+        kpiSalaoBadgeEl.className = "ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40";
+        kpiSalaoBadgeEl.innerText = `+${salaoDiff} EXCEDENTE`;
+        kpiSalaoBarEl.className = "h-full rounded-full transition-all duration-500 bg-gradient-to-r from-amber-500 to-rose-500";
+      } else if (salaoDiff === 0) {
+        kpiSalaoBadgeEl.className = "ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40";
+        kpiSalaoBadgeEl.innerText = `NO LIMITE EXATO (70/70)`;
+        kpiSalaoBarEl.className = "h-full rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 to-amber-500";
+      } else {
+        kpiSalaoBadgeEl.className = "ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        kpiSalaoBadgeEl.innerText = `${Math.abs(salaoDiff)} VAGAS SOBRANDO`;
+        kpiSalaoBarEl.className = "h-full rounded-full transition-all duration-500 bg-gradient-to-r from-teal-500 to-emerald-400";
+      }
+
+      const hallExemptCount = guestList.filter(g => !g.countsHall && (viewMode === 'worstCase' ? g.status !== 'declined' : g.status === 'confirmed')).length;
+      kpiSalaoDetailsEl.innerText = `Confirmados: ${confirmedHall} | Pendentes: ${potentialHall - confirmedHall} | Isentos (≤2a): ${hallExemptCount}`;
+
+      // Buffet Gauge
+      const kpiBuffetValEl = document.getElementById('kpiBuffetValue');
+      const kpiBuffetBadgeEl = document.getElementById('kpiBuffetBadge');
+      const kpiBuffetBarEl = document.getElementById('kpiBuffetBar');
+      const kpiBuffetDetailsEl = document.getElementById('kpiBuffetDetails');
+
+      kpiBuffetValEl.innerText = activeBuffet;
+      const buffetPct = Math.min(100, Math.round((activeBuffet / 65) * 100));
+      kpiBuffetBarEl.style.width = `${buffetPct}%`;
+
+      if (buffetDiff > 0) {
+        kpiBuffetBadgeEl.className = "ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40";
+        kpiBuffetBadgeEl.innerText = `+${buffetDiff} PAGANTES EXTRA`;
+        kpiBuffetBarEl.className = "h-full rounded-full transition-all duration-500 bg-gradient-to-r from-amber-500 to-rose-600";
+      } else if (buffetDiff === 0) {
+        kpiBuffetBadgeEl.className = "ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        kpiBuffetBadgeEl.innerText = `PACOTE EXATO (60/60)`;
+        kpiBuffetBarEl.className = "h-full rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 to-emerald-400";
+      } else {
+        kpiBuffetBadgeEl.className = "ml-2 px-2 py-0.5 text-xs rounded font-sans font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        kpiBuffetBadgeEl.innerText = `${Math.abs(buffetDiff)} VAGAS DE CRÉDITO`;
+        kpiBuffetBarEl.className = "h-full rounded-full transition-all duration-500 bg-gradient-to-r from-teal-500 to-emerald-400";
+      }
+
+      const activePayingAdults = guestList.filter(g => !g.isChild && (viewMode === 'worstCase' ? g.status !== 'declined' : g.status === 'confirmed')).length;
+      const activePayingKids = guestList.filter(g => g.isChild && g.paysBuffet && (viewMode === 'worstCase' ? g.status !== 'declined' : g.status === 'confirmed')).length;
+      kpiBuffetDetailsEl.innerText = `Adultos pagantes: ${activePayingAdults} | Crianças >6a: ${activePayingKids}`;
+
+      updateDiagnosticDeck(salaoDiff, buffetDiff, pendingCount, activeHall);
+    }
+
+    function updateDiagnosticDeck(salaoDiff, buffetDiff, pendingCount, activeHall) {
+      const pillEl = document.getElementById('diagnosticPill');
+      const titleEl = document.getElementById('diagnosticTitle');
+      const descEl = document.getElementById('diagnosticDesc');
+      const iconEl = document.getElementById('diagnosticIcon');
+      const cardEl = document.getElementById('diagnosticCard');
+
+      if (salaoDiff <= 0 && buffetDiff <= 0) {
+        cardEl.className = "mt-4 p-3.5 rounded-lg bg-emerald-950/40 border border-emerald-500/50 space-y-2";
+        pillEl.className = "px-2 py-0.5 rounded text-[11px] font-tactical font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        pillEl.innerText = "CENÁRIO A • SITUAÇÃO REGULARIZADA";
+        titleEl.innerText = "Tudo dentro dos limites contratados!";
+        titleEl.className = "text-sm font-bold text-emerald-300";
+        descEl.innerText = "Nenhum corte é necessário. O salão comporta todos com folga e o buffet fechado cobre os presentes. O evento está 100% blindado sem custos aditivos.";
+        iconEl.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+        return;
+      }
+
+      if (salaoDiff <= 0 && buffetDiff > 0) {
+        cardEl.className = "mt-4 p-3.5 rounded-lg bg-amber-950/40 border border-amber-500/50 space-y-2";
+        pillEl.className = "px-2 py-0.5 rounded text-[11px] font-tactical font-bold uppercase tracking-wide bg-amber-500/20 text-amber-300 border border-amber-500/40";
+        pillEl.innerText = "CENÁRIO B • RECOMENDAÇÃO DE ADITIVO";
+        titleEl.innerText = `Salão Liberado • Contratar +${buffetDiff} Aditivo(s) no Buffet`;
+        titleEl.className = "text-sm font-bold text-amber-300";
+        descEl.innerText = `A capacidade física do salão (${activeHall}/70) está rigorosamente respeitada. Para preservar os convidados, a melhor decisão é orçar apenas o acréscimo de +${buffetDiff} pagante(s) no buffet do Villa Trampolim.`;
+        iconEl.className = "fa-solid fa-triangle-exclamation text-amber-400 text-lg";
+        return;
+      }
+
+      if (salaoDiff > 0) {
+        cardEl.className = "mt-4 p-3.5 rounded-lg bg-rose-950/40 border border-rose-500/50 space-y-2";
+        pillEl.className = "px-2 py-0.5 rounded text-[11px] font-tactical font-bold uppercase tracking-wide bg-rose-500/20 text-rose-300 border border-rose-500/40";
+        pillEl.innerText = "CENÁRIO C • ALERTA DE LOTAÇÃO FÍSICA";
+        titleEl.innerText = `Excedente de +${salaoDiff} pessoa(s) no Salão e +${buffetDiff} no Buffet`;
+        titleEl.className = "text-sm font-bold text-rose-300";
+        descEl.innerText = pendingCount > 0 
+          ? `Ainda restam ${pendingCount} respostas pendentes. Se surgirem 4 recusas naturais de pagantes, a capacidade normaliza automaticamente. Se todos confirmarem, consulte a tolerância de espaço com o Villa Trampolim.`
+          : `Quórum consolidado acima da lotação física máxima contratada. Consulte o Villa Trampolim sobre tolerância física ou reajuste pontualmente acompanhantes da lista.`;
+        iconEl.className = "fa-solid fa-radiation text-rose-400 text-lg";
+      }
+    }
+
+    function renderGuestTable() {
+      const tbody = document.getElementById('guestsTableBody');
+      tbody.innerHTML = '';
+
+      const filtered = guestList.filter(guest => {
+        if (currentDimensionFilter !== 'all' && guest.dimension !== currentDimensionFilter) {
+          return false;
+        }
+
+        if (currentStatusFilter !== 'all' && guest.status !== currentStatusFilter) {
+          return false;
+        }
+
+        if (currentSearchTerm.trim() !== '') {
+          const term = currentSearchTerm.toLowerCase();
+          const matchName = guest.name.toLowerCase().includes(term);
+          const matchDim = guest.dimension.toLowerCase().includes(term);
+          const matchNote = (guest.note || '').toLowerCase().includes(term);
+          const matchProfile = (guest.profile || '').toLowerCase().includes(term);
+          if (!matchName && !matchDim && !matchNote && !matchProfile) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      document.getElementById('visibleGuestsCount').innerText = filtered.length;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="text-center py-8 text-slate-400">
+              <i class="fa-solid fa-ghost text-2xl mb-2 text-slate-600"></i>
+              <p>Nenhum agente localizado com os filtros selecionados.</p>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach((guest, index) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-900/60 transition border-b border-slate-800/40";
+
+        const tdNum = `<td class="py-2.5 px-3 text-center font-mono text-slate-500">${String(index + 1).padStart(2, '0')}</td>`;
+
+        let iconDim = 'fa-user';
+        if (guest.dimension === 'Anfitriões') iconDim = 'fa-crown text-spider-yellow';
+        else if (guest.dimension === 'Tropa Kids') iconDim = 'fa-child text-spider-neonblue';
+        else if (guest.dimension === 'Família Cátia') iconDim = 'fa-heart text-rose-400';
+        else if (guest.dimension === 'Família Gustavo') iconDim = 'fa-shield text-cyan-400';
+        else iconDim = 'fa-handshake-angle text-amber-400';
+
+        const tdName = `
+          <td class="py-2.5 px-4 font-medium text-white flex items-center gap-2">
+            <i class="fa-solid ${iconDim} text-xs opacity-80"></i>
+            <span>${escapeHtml(guest.name)}</span>
+          </td>
+        `;
+
+        const tdDim = `
+          <td class="py-2.5 px-3 text-slate-300">
+            <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+              ${escapeHtml(guest.dimension)}
+            </span>
+          </td>
+        `;
+
+        let profileClass = "text-slate-300";
+        if (guest.isChild && guest.age !== null && guest.age <= 2) profileClass = "text-emerald-400 font-semibold";
+        else if (guest.isChild && ((guest.age !== null && guest.age > 6) || guest.paysBuffet)) profileClass = "text-rose-400 font-semibold";
+        else if (guest.isChild) profileClass = "text-cyan-300 font-semibold";
+
+        const tdProfile = `<td class="py-2.5 px-3 ${profileClass}">${escapeHtml(guest.profile)}</td>`;
+
+        const tdHall = guest.countsHall
+          ? `<td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-spider-blue/30 text-cyan-300 border border-spider-blue/50">SIM</span></td>`
+          : `<td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/40 text-emerald-300 border border-emerald-800/60">ISENTO (≤2a)</span></td>`;
+
+        const tdBuffet = guest.paysBuffet
+          ? `<td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/40 text-rose-300 border border-rose-800/60">PAGA</span></td>`
+          : `<td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/40 text-emerald-300 border border-emerald-800/60">ISENTO (≤6a)</span></td>`;
+
+        const isConf = guest.status === 'confirmed';
+        const isPend = guest.status === 'pending';
+        const isDecl = guest.status === 'declined';
+
+        const tdStatus = `
+          <td class="py-2.5 px-4 text-center">
+            <div class="inline-flex rounded-lg p-0.5 bg-slate-950 border border-slate-800 shadow-inner">
+              <button data-action="confirm" data-id="${guest.id}" 
+                class="px-2 py-1 text-[11px] font-semibold rounded ${isConf ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-emerald-300'} transition"
+                title="Confirmar Presença">
+                <i class="fa-solid fa-check"></i> <span class="hidden sm:inline">Vai</span>
+              </button>
+              <button data-action="pending" data-id="${guest.id}" 
+                class="px-2 py-1 text-[11px] font-semibold rounded ${isPend ? 'bg-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-amber-300'} transition"
+                title="Em Espera / Aguardando">
+                <i class="fa-solid fa-hourglass-half"></i> <span class="hidden sm:inline">Pendente</span>
+              </button>
+              <button data-action="decline" data-id="${guest.id}" 
+                class="px-2 py-1 text-[11px] font-semibold rounded ${isDecl ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-rose-300'} transition"
+                title="Não vai / Recusado">
+                <i class="fa-solid fa-xmark"></i> <span class="hidden sm:inline">Não vai</span>
+              </button>
+            </div>
+          </td>
+        `;
+
+        const tdNote = `
+          <td class="py-2.5 px-4 text-slate-400 text-[11px]">
+            <input type="text" value="${escapeHtml(guest.note || '')}" 
+              data-note-id="${guest.id}"
+              placeholder="Adicionar nota..." 
+              class="guest-note-input w-full bg-transparent hover:bg-slate-900/50 focus:bg-slate-900 border-b border-transparent focus:border-spider-neonblue px-1 py-0.5 text-slate-300 focus:outline-none transition">
+          </td>
+        `;
+
+        const tdActions = `
+          <td class="py-2.5 px-3 text-center">
+            <button data-delete-id="${guest.id}" 
+              class="text-rose-400/70 hover:text-rose-400 p-1 rounded hover:bg-rose-950/40 transition" 
+              title="Dispensar / Remover Convidado">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          </td>
+        `;
+
+        tr.innerHTML = tdNum + tdName + tdDim + tdProfile + tdHall + tdBuffet + tdStatus + tdNote + tdActions;
+        tbody.appendChild(tr);
+      });
+
+      attachTableDynamicEvents();
+    }
+
+    function attachTableDynamicEvents() {
+      document.querySelectorAll('#guestsTableBody button[data-action]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const target = e.currentTarget;
+          const action = target.getAttribute('data-action');
+          const id = parseInt(target.getAttribute('data-id'), 10);
+          const statusMap = { confirm: 'confirmed', pending: 'pending', decline: 'declined' };
+          updateGuestStatus(id, statusMap[action]);
+        });
+      });
+
+      document.querySelectorAll('.guest-note-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const id = parseInt(e.target.getAttribute('data-note-id'), 10);
+          updateGuestNote(id, e.target.value);
+        });
+      });
+
+      document.querySelectorAll('#guestsTableBody button[data-delete-id]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const target = e.currentTarget;
+          const id = parseInt(target.getAttribute('data-delete-id'), 10);
+          openDeleteConfirmModal(id);
+        });
+      });
+    }
+
+    function updateGuestStatus(guestId, newStatus) {
+      const guest = guestList.find(g => g.id === guestId);
+      if (guest) {
+        guest.status = newStatus;
+        renderAll();
+        persistState();
+        showToast("Status Atualizado", `${guest.name}: ${statusLabel(newStatus)}`);
+      }
+    }
+
+    function updateGuestNote(guestId, newNote) {
+      const guest = guestList.find(g => g.id === guestId);
+      if (guest) {
+        guest.note = newNote;
+        persistState();
+        showToast("Anotação Salva", `Nota de ${guest.name} atualizada.`);
+      }
+    }
+
+    function addGuest(data) {
+      const maxId = guestList.length > 0 ? Math.max(...guestList.map(g => g.id)) : 0;
+      const newGuest = {
+        id: maxId + 1,
+        name: data.name.trim(),
+        dimension: data.dimension,
+        profile: data.profile,
+        isChild: data.isChild,
+        age: data.age,
+        countsHall: data.countsHall,
+        paysBuffet: data.paysBuffet,
+        status: data.status,
+        note: data.note || ""
+      };
+
+      guestList.push(newGuest);
+      renderAll();
+      persistState();
+      showToast("Agente Convocado", `${newGuest.name} foi adicionado à lista!`);
+    }
+
+    function openDeleteConfirmModal(guestId) {
+      const guest = guestList.find(g => g.id === guestId);
+      if (!guest) return;
+
+      pendingDeleteGuestId = guestId;
+      document.getElementById('deleteGuestTargetName').innerText = guest.name;
+      document.getElementById('modalDeleteGuest').classList.remove('hidden');
+    }
+
+    function confirmDeleteGuest() {
+      if (pendingDeleteGuestId === null) return;
+      const guest = guestList.find(g => g.id === pendingDeleteGuestId);
+      const name = guest ? guest.name : "Agente";
+
+      guestList = guestList.filter(g => g.id !== pendingDeleteGuestId);
+      pendingDeleteGuestId = null;
+
+      document.getElementById('modalDeleteGuest').classList.add('hidden');
+      renderAll();
+      persistState();
+      showToast("Agente Dispensado", `${name} foi removido da lista.`);
+    }
+
+    function renderAll() {
+      recalculateMetrics();
+      renderGuestTable();
+    }
+
+    function statusLabel(status) {
+      if (status === 'confirmed') return 'Confirmado ✅';
+      if (status === 'declined') return 'Não vai ❌';
+      return 'Pendente ⏳';
+    }
+
+    function escapeHtml(string) {
+      return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function exportToCSV() {
+      let csv = "\uFEFF";
+      csv += "Numero;Convidado;Dimensao;Perfil;Conta_Salao;Paga_Buffet;Status_RSVP;Observacao\n";
+
+      guestList.forEach((g, idx) => {
+        const salao = g.countsHall ? "SIM" : "ISENTO";
+        const buffet = g.paysBuffet ? "PAGA" : "ISENTO";
+        const statusMap = { confirmed: "Confirmado", pending: "Pendente", declined: "Não vai" };
+        const status = statusMap[g.status] || g.status;
+        const cleanName = (g.name || "").replace(/;/g, ",");
+        const cleanNote = (g.note || "").replace(/;/g, ",");
+
+        csv += `${idx + 1};"${cleanName}";"${g.dimension}";"${g.profile}";"${salao}";"${buffet}";"${status}";"${cleanNote}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `RSVP_Missao_Aranhaverso_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Download Concluído", "Relatório CSV pronto para o Excel.");
+    }
+
+    function copyTacticalDossier() {
+      let confirmedCount = guestList.filter(g => g.status === 'confirmed').length;
+      let pendingCount = guestList.filter(g => g.status === 'pending').length;
+      let declinedCount = guestList.filter(g => g.status === 'declined').length;
+
+      let payingConfirmed = guestList.filter(g => g.status === 'confirmed' && g.paysBuffet).length;
+      let hallConfirmed = guestList.filter(g => g.status === 'confirmed' && g.countsHall).length;
+
+      const dossier = `🕷️ MISSÃO ARANHAVERSO: MIGUELITO 4 ANOS (Villa Trampolim)
+📊 RELATÓRIO TÁTICO E STATUS DE RSVP
+--------------------------------------------------
+Total Geral de Convocados: ${guestList.length}
+✅ Confirmados: ${confirmedCount}
+⏳ Pendentes: ${pendingCount}
+❌ Não Comparecerão: ${declinedCount}
+
+SALÃO FÍSICO (Capacidade 70):
+- Ocupação Confirmada: ${hallConfirmed} pessoas
+- Regra: Crianças até 2 anos não contam.
+
+BUFFET GASTRONÔMICO (Contratado 60):
+- Pagantes Confirmados: ${payingConfirmed} pessoas
+- Regra: Isenção até 6 anos. Crianças 7+ anos e adultos pagam.
+
+ZONA DE TRAMPOLINS (Contratado 40):
+- Crianças ativas na lista: ${guestList.filter(g => g.isChild).length}
+--------------------------------------------------
+Gerado pelo Sistema Tático do Aranhaverso`;
+
+      copyToClipboardText(dossier);
+      showToast("Dossiê Copiado", "Resumo tático copiado para a área de transferência!");
+    }
+
+    function copyToClipboardText(text) {
+      const tempTextArea = document.createElement("textarea");
+      tempTextArea.value = text;
+      tempTextArea.style.position = "fixed";
+      tempTextArea.style.left = "-9999px";
+      document.body.appendChild(tempTextArea);
+      tempTextArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error("Copy failed", err);
+      }
+      document.body.removeChild(tempTextArea);
+    }
+
+    function setupEventListeners() {
+      // Search input
+      const searchInput = document.getElementById('guestSearchInput');
+      searchInput.addEventListener('input', (e) => {
+        currentSearchTerm = e.target.value;
+        renderGuestTable();
+      });
+
+      // Filter select
+      const statusSelect = document.getElementById('statusFilterSelect');
+      statusSelect.addEventListener('change', (e) => {
+        currentStatusFilter = e.target.value;
+        renderGuestTable();
+      });
+
+      // Dimension filter tabs
+      const dimButtons = document.querySelectorAll('.dim-filter-btn');
+      dimButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          dimButtons.forEach(b => {
+            b.className = "dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical text-slate-300 hover:text-white bg-slate-900 border border-slate-700 transition";
+          });
+          btn.className = "dim-filter-btn px-3 py-1.5 rounded text-xs font-tactical font-bold bg-spider-blue text-white border border-spider-neonblue transition";
+          currentDimensionFilter = btn.getAttribute('data-dim');
+          renderGuestTable();
+        });
+      });
+
+      // View mode toggles
+      const btnWorst = document.getElementById('viewModeWorstCase');
+      const btnConf = document.getElementById('viewModeConfirmedOnly');
+
+      btnWorst.addEventListener('click', () => {
+        viewMode = 'worstCase';
+        btnWorst.className = "px-2.5 py-1 rounded font-medium bg-spider-blue text-white border border-spider-neonblue/50 text-xs transition";
+        btnConf.className = "px-2.5 py-1 rounded font-medium bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs transition";
+        recalculateMetrics();
+      });
+
+      btnConf.addEventListener('click', () => {
+        viewMode = 'confirmedOnly';
+        btnConf.className = "px-2.5 py-1 rounded font-medium bg-spider-blue text-white border border-spider-neonblue/50 text-xs transition";
+        btnWorst.className = "px-2.5 py-1 rounded font-medium bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs transition";
+        recalculateMetrics();
+      });
+
+      // Header action buttons
+      document.getElementById('btnQuickExport').addEventListener('click', exportToCSV);
+      document.getElementById('btnCopyReport').addEventListener('click', copyTacticalDossier);
+
+      document.getElementById('btnSyncNowForce').addEventListener('click', () => {
+        persistState();
+        showToast("Nuvem", "Forçando sincronização de todos os agentes...");
+      });
+
+      document.getElementById('btnResetData').addEventListener('click', () => {
+        resetToInitial(true);
+        showToast("Dados Redefinidos", "Lista restaurada para a formação padrão de 75 agentes.");
+      });
+
+      document.getElementById('btnBatchConfirmVisible').addEventListener('click', () => {
+        const visibleGuests = guestList.filter(guest => {
+          if (currentDimensionFilter !== 'all' && guest.dimension !== currentDimensionFilter) return false;
+          if (currentStatusFilter !== 'all' && guest.status !== currentStatusFilter) return false;
+          if (currentSearchTerm.trim() !== '') {
+            const term = currentSearchTerm.toLowerCase();
+            const match = guest.name.toLowerCase().includes(term) || guest.dimension.toLowerCase().includes(term);
+            if (!match) return false;
+          }
+          return true;
+        });
+
+        visibleGuests.forEach(g => {
+          g.status = 'confirmed';
+        });
+        renderAll();
+        persistState();
+        showToast("Confirmação em Lote", `${visibleGuests.length} convidados confirmados.`);
+      });
+
+      document.getElementById('btnSimulateFull').addEventListener('click', () => {
+        guestList.forEach(g => {
+          if (g.status === 'pending') g.status = 'confirmed';
+        });
+        renderAll();
+        persistState();
+        showToast("Simulação Aplicada", "Todos os pendentes marcados como CONFIRMADOS.");
+      });
+
+      document.getElementById('btnSimulateNaturalNorm').addEventListener('click', () => {
+        let count = 0;
+        for (let g of guestList) {
+          if (g.status === 'pending' && g.paysBuffet && g.dimension !== 'Anfitriões') {
+            g.status = 'declined';
+            count++;
+            if (count >= 4) break;
+          }
+        }
+        renderAll();
+        persistState();
+        showToast("Simulação Aplicada", "4 pagantes marcados como recusa.");
+      });
+
+      // QR Code Modal
+      const modalQr = document.getElementById('modalQrSync');
+      document.getElementById('btnOpenQrModal').addEventListener('click', () => {
+        updateQrCode();
+        modalQr.classList.remove('hidden');
+      });
+      document.getElementById('btnCloseModalQrSync').addEventListener('click', () => {
+        modalQr.classList.add('hidden');
+      });
+      document.getElementById('btnDoneQrSync').addEventListener('click', () => {
+        modalQr.classList.add('hidden');
+      });
+
+      // Copy paired room link
+      document.getElementById('btnCopyRoomLink').addEventListener('click', () => {
+        const baseUrl = window.location.href.split('#')[0].split('?')[0];
+        const pairedUrl = `${baseUrl}?room=${encodeURIComponent(currentRoomCode)}`;
+        copyToClipboardText(pairedUrl);
+        showToast("Link Copiado!", "Envie para o celular da Cátia ou do Gustavo no WhatsApp.");
+      });
+
+      // Cloud Room Config Modal
+      const modalCloud = document.getElementById('modalCloudConfig');
+      document.getElementById('btnOpenCloudConfig').addEventListener('click', () => {
+        document.getElementById('inputRoomCode').value = currentRoomCode;
+        modalCloud.classList.remove('hidden');
+      });
+      document.getElementById('btnCloseModalCloudConfig').addEventListener('click', () => {
+        modalCloud.classList.add('hidden');
+      });
+
+      document.getElementById('btnSaveRoomCode').addEventListener('click', () => {
+        const newCode = document.getElementById('inputRoomCode').value.toUpperCase().trim();
+        if (newCode) {
+          currentRoomCode = newCode;
+          window.currentRoomCode = currentRoomCode;
+          localStorage.setItem(ROOM_CODE_KEY, currentRoomCode);
+          document.getElementById('displayRoomCode').innerText = currentRoomCode;
+          updateQrCode();
+          initCloudRelay();
+          if (window.FirebaseBridge && window.FirebaseBridge.isInitialized) {
+            window.FirebaseBridge.listenToMissionDocument();
+          }
+          modalCloud.classList.add('hidden');
+          showToast("Sala Alterada", `Conectado à sala: ${currentRoomCode}`);
+        }
+      });
+
+      // Firebase connect handlers
+      document.getElementById('btnConnectFirebase').addEventListener('click', async () => {
+        const raw = document.getElementById('inputFirebaseConfig').value.trim();
+        if (!raw) {
+          showToast("Atenção", "Cole a configuração do Firebase primeiro.");
+          return;
+        }
+
+        try {
+          // Flexible parser supporting JS object notation or JSON
+          let cleaned = raw;
+          if (cleaned.includes('const firebaseConfig =')) {
+            cleaned = cleaned.replace(/const\s+firebaseConfig\s*=\s*/, '').replace(/;\s*$/, '');
+          }
+          // Convert unquoted keys to quoted JSON keys if needed
+          cleaned = cleaned.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":').replace(/'/g, '"');
+          const parsed = JSON.parse(cleaned);
+
+          localStorage.setItem('aranhaverso_firebase_config', JSON.stringify(parsed));
+          showToast("Conectando Firebase...", "Autenticando e abrindo canal Firestore...");
+
+          const res = await window.FirebaseBridge.initialize(parsed);
+          updateFirebaseUI(res.success, res.message);
+
+          if (res.success) {
+            persistState();
+            showToast("Firebase Ativo", "Seu GitHub Pages e Web App agora sincronizam em tempo real!");
+          } else {
+            showToast("Erro Firebase", res.message);
+          }
+        } catch (err) {
+          showToast("Erro de Formato", "Verifique se o JSON do Firebase está completo.");
+          updateFirebaseUI(false, "Formato inválido. Cole o objeto { apiKey: '...', projectId: '...' }");
+        }
+      });
+
+      document.getElementById('btnClearFirebaseConfig').addEventListener('click', () => {
+        localStorage.removeItem('aranhaverso_firebase_config');
+        document.getElementById('inputFirebaseConfig').value = '';
+        if (window.FirebaseBridge) {
+          if (window.FirebaseBridge.unsubscribeSnapshot) {
+            window.FirebaseBridge.unsubscribeSnapshot();
+            window.FirebaseBridge.unsubscribeSnapshot = null;
+          }
+          window.FirebaseBridge.isInitialized = false;
+        }
+        updateFirebaseUI(false, "Configuração do Firebase removida.");
+        showToast("Firebase Desativado", "Usando apenas Nuvem Direta e LocalStorage.");
+      });
+
+      document.getElementById('btnForcePullCloud').addEventListener('click', async () => {
+        showToast("Puxando da Nuvem", "Verificando se há atualizações...");
+        await pullFromCloud(false);
+      });
+
+      document.getElementById('btnForcePushCloud').addEventListener('click', async () => {
+        showToast("Enviando", "Gravando dados na nuvem da missão...");
+        await pushToCloud();
+      });
+
+      document.getElementById('btnQuickCopyState').addEventListener('click', () => {
+        copyToClipboardText(JSON.stringify(guestList));
+        showToast("Copiado!", "Dados copiados para a área de transferência.");
+      });
+
+      document.getElementById('btnQuickPasteState').addEventListener('click', () => {
+        const text = prompt("Cole os dados da missão aqui:");
+        if (text) {
+          try {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed)) {
+              mergeGuestsWithData(parsed);
+              persistState();
+              renderAll();
+              showToast("Restaurado!", "Lista atualizada com os dados colados.");
+            }
+          } catch (e) {
+            showToast("Erro", "Formato de texto inválido.");
+          }
+        }
+      });
+
+      // Add Guest Modal Handlers
+      const modalAddGuest = document.getElementById('modalAddGuest');
+      const addCategorySelect = document.getElementById('addGuestCategory');
+      const addGuestImpactSummary = document.getElementById('addGuestImpactSummary');
+
+      function updateCategoryImpactPreview() {
+        const cat = addCategorySelect.value;
+        if (cat === 'adult') {
+          addGuestImpactSummary.innerHTML = 'Salão: <strong class="text-cyan-300">SIM (+1 vaga)</strong> • Buffet: <strong class="text-rose-300">PAGA (+1 pagante)</strong>';
+        } else if (cat === 'baby') {
+          addGuestImpactSummary.innerHTML = 'Salão: <strong class="text-emerald-300">ISENTO (≤2a)</strong> • Buffet: <strong class="text-emerald-300">ISENTO (Free)</strong>';
+        } else if (cat === 'cadet') {
+          addGuestImpactSummary.innerHTML = 'Salão: <strong class="text-cyan-300">SIM (+1 vaga)</strong> • Buffet: <strong class="text-emerald-300">ISENTO (Free)</strong>';
+        } else {
+          addGuestImpactSummary.innerHTML = 'Salão: <strong class="text-cyan-300">SIM (+1 vaga)</strong> • Buffet: <strong class="text-rose-300">PAGA (+1 pagante)</strong>';
+        }
+      }
+
+      addCategorySelect.addEventListener('change', updateCategoryImpactPreview);
+
+      document.getElementById('btnOpenAddGuestModal').addEventListener('click', () => {
+        document.getElementById('formAddGuest').reset();
+        updateCategoryImpactPreview();
+        modalAddGuest.classList.remove('hidden');
+      });
+
+      document.getElementById('btnCloseModalAddGuest').addEventListener('click', () => {
+        modalAddGuest.classList.add('hidden');
+      });
+
+      document.getElementById('btnCancelAddGuest').addEventListener('click', () => {
+        modalAddGuest.classList.add('hidden');
+      });
+
+      document.getElementById('formAddGuest').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('addGuestName').value;
+        if (!name.trim()) return;
+
+        const dimension = document.getElementById('addGuestDimension').value;
+        const category = document.getElementById('addGuestCategory').value;
+        const ageText = document.getElementById('addGuestAgeText').value.trim();
+        const status = document.getElementById('addGuestStatus').value;
+        const note = document.getElementById('addGuestNote').value.trim();
+
+        let isChild = false;
+        let age = null;
+        let countsHall = true;
+        let paysBuffet = true;
+        let profile = "Adulto";
+
+        if (category === 'baby') {
+          isChild = true;
+          age = 2;
+          countsHall = false;
+          paysBuffet = false;
+          profile = ageText || "≤ 2 anos";
+        } else if (category === 'cadet') {
+          isChild = true;
+          age = 5;
+          countsHall = true;
+          paysBuffet = false;
+          profile = ageText || "3 a 6 anos";
+        } else if (category === 'veteran') {
+          isChild = true;
+          age = 8;
+          countsHall = true;
+          paysBuffet = true;
+          profile = ageText || "> 6 anos";
+        } else {
+          isChild = false;
+          age = null;
+          countsHall = true;
+          paysBuffet = true;
+          profile = "Adulto";
+        }
+
+        addGuest({
+          name,
+          dimension,
+          profile,
+          isChild,
+          age,
+          countsHall,
+          paysBuffet,
+          status,
+          note
+        });
+
+        modalAddGuest.classList.add('hidden');
+      });
+
+      // Delete Modal Handlers
+      document.getElementById('btnCancelDeleteGuest').addEventListener('click', () => {
+        document.getElementById('modalDeleteGuest').classList.add('hidden');
+        pendingDeleteGuestId = null;
+      });
+
+      document.getElementById('btnConfirmDeleteGuest').addEventListener('click', confirmDeleteGuest);
+
+      // WhatsApp Modal handlers
+      const modalWhatsApp = document.getElementById('modalWhatsApp');
+      document.getElementById('btnOpenWhatsAppSummon').addEventListener('click', () => {
+        modalWhatsApp.classList.remove('hidden');
+      });
+
+      document.getElementById('btnCloseModalWhatsApp').addEventListener('click', () => {
+        modalWhatsApp.classList.add('hidden');
+      });
+
+      document.getElementById('btnCopyWhatsAppText').addEventListener('click', () => {
+        const text = document.getElementById('whatsappTextContent').value;
+        copyToClipboardText(text);
+        const fb = document.getElementById('copyFeedback');
+        fb.classList.remove('hidden');
+        setTimeout(() => fb.classList.add('hidden'), 2500);
+      });
+
+      // Close modals on outside click
+      [modalWhatsApp, modalAddGuest, modalQr, modalCloud].forEach(m => {
+        m.addEventListener('click', (e) => {
+          if (e.target === m) m.classList.add('hidden');
+        });
+      });
+    }
+
+    function showToast(title, message) {
+      const toast = document.getElementById('toastNotification');
+      const titleEl = document.getElementById('toastTitle');
+      const msgEl = document.getElementById('toastMessage');
+
+      titleEl.innerText = title;
+      msgEl.innerText = message;
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      clearTimeout(window._toastTimeout);
+      window._toastTimeout = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    window.onload = function() {
+      initApp();
+    };
+  </script>
+</body>
+</html>
